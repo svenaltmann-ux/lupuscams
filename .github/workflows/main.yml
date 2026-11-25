@@ -1,3 +1,4 @@
+yaml
 name: APK bauen
 
 on:
@@ -17,8 +18,9 @@ jobs:
         with:
           gradle-version: 8.7
       - name: Debug-APK bauen
+        working-directory: LupusCams/LupusCams
         run: gradle assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: LupusCams-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: LupusCams/LupusCams/app/build/outputs/apk/debug/app-debug.apk
