@@ -20,15 +20,23 @@ data class Camera(
     val preferSub: Boolean = false,
     /** Schwenken/Neigen per ONVIF anzeigen. */
     val ptz: Boolean = false,
-    /** Port des ONVIF-Dienstes der Kamera (meist 80). */
+    /** Steuer-Port der Kamera (ONVIF bzw. Foscam-Weboberfläche, meist 80). */
     val onvifPort: Int = 80,
+    /** Art der Schwenk-Steuerung: PTZ_ONVIF oder PTZ_FOSCAM. */
+    val ptzMode: String = PTZ_ONVIF,
 ) {
     fun rtspUri(main: Boolean): Uri? {
         if (host.isBlank()) return null
-        val path = try {
-            pathTemplate.format(if (main) 0 else 1)
-        } catch (e: Exception) {
-            pathTemplate
+        // Pfad entweder mit %d (0 = Haupt, 1 = Sub) oder als "Hauptpfad|Subpfad"
+        val path = if (pathTemplate.contains("|")) {
+            val parts = pathTemplate.split("|").map { it.trim() }
+            if (main) parts[0] else parts.getOrElse(1) { parts[0] }
+        } else {
+            try {
+                pathTemplate.format(if (main) 0 else 1)
+            } catch (e: Exception) {
+                pathTemplate
+            }
         }
         val cleanPath = if (path.startsWith("/")) path else "/$path"
         val auth = if (user.isNotBlank()) "${Uri.encode(user)}:${Uri.encode(password)}@" else ""
@@ -38,7 +46,10 @@ data class Camera(
     companion object {
         const val PATH_STANDARD = "/cam/realmonitor?channel=1&subtype=%d"
         const val PATH_ONVIF = "/cam/realmonitor?channel=1&subtype=%d&unicast=true&proto=Onvif"
+        const val PATH_FOSCAM = "/videoMain|/videoSub"
         const val DEFAULT_PATH = PATH_STANDARD
+        const val PTZ_ONVIF = "onvif"
+        const val PTZ_FOSCAM = "foscam"
 
         fun defaults() = listOf(
             Camera(name = "LE232"),

@@ -325,7 +325,13 @@ private fun FullScreen(camera: Camera, onBack: () -> Unit, onEdit: () -> Unit) {
     var reloadKey by remember { mutableIntStateOf(0) }
     var notice by remember { mutableStateOf<String?>(null) }
     var ptzError by remember { mutableStateOf<String?>(null) }
-    val ptz = remember(camera) { if (camera.ptz) OnvifPtz(camera) else null }
+    val ptz: PtzController? = remember(camera) {
+        when {
+            !camera.ptz -> null
+            camera.ptzMode == Camera.PTZ_FOSCAM -> FoscamPtz(camera)
+            else -> OnvifPtz(camera)
+        }
+    }
 
     DisposableEffect(ptz) {
         onDispose {
@@ -410,7 +416,7 @@ private fun FullScreen(camera: Camera, onBack: () -> Unit, onEdit: () -> Unit) {
 }
 
 @Composable
-private fun PtzPad(ptz: OnvifPtz, onError: (String?) -> Unit, modifier: Modifier = Modifier) {
+private fun PtzPad(ptz: PtzController, onError: (String?) -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val press: (Float, Float) -> Unit = { x, y -> scope.launch { onError(ptz.move(x, y)) } }
     val release: () -> Unit = { scope.launch { ptz.stop() } }
@@ -464,6 +470,7 @@ private fun EditScreen(
     var preferSub by remember { mutableStateOf(camera.preferSub) }
     var ptz by remember { mutableStateOf(camera.ptz) }
     var onvifPort by remember { mutableStateOf(camera.onvifPort.toString()) }
+    var ptzMode by remember { mutableStateOf(camera.ptzMode) }
     var confirmDelete by remember { mutableStateOf(false) }
 
     Column(
@@ -498,18 +505,27 @@ private fun EditScreen(
         )
         OutlinedTextField(
             path, { path = it },
-            label = { Text("RTSP-Pfad (%d = 0 Haupt-, 1 Substream)") },
+            label = { Text("RTSP-Pfad (%d = 0 Haupt-, 1 Substream; oder Haupt|Sub)") },
             modifier = Modifier.fillMaxWidth(),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { path = Camera.PATH_STANDARD }) { Text("Standard") }
             OutlinedButton(onClick = { path = Camera.PATH_ONVIF }) { Text("Mit ONVIF-Zusatz") }
         }
+        OutlinedButton(onClick = {
+            // Vorlage für Foscam FI9821W/P (bei Lupus als LE200 verkauft)
+            port = "88"
+            path = Camera.PATH_FOSCAM
+            ptz = true
+            ptzMode = Camera.PTZ_FOSCAM
+            onvifPort = "80"
+        }) { Text("Vorlage Foscam / LE200") }
         Text(
-            "Standard passt für Lupus LE202/LE204/LE232/LE200 und Imou. Falls das Bild nicht kommt, " +
-                "\"Mit ONVIF-Zusatz\" probieren (z. B. LE221). Imou: Benutzer admin, als Passwort das in der " +
-                "Imou-Life-App vergebene Gerätepasswort bzw. der Sicherheitscode; RTSP/ONVIF muss dort " +
-                "ggf. aktiviert sein.",
+            "Standard passt für Lupus LE202/LE204/LE232 und Imou. Falls das Bild nicht kommt, " +
+                "\"Mit ONVIF-Zusatz\" probieren (z. B. LE221). Die LE200 ist eine Foscam FI9821: dafür " +
+                "\"Vorlage Foscam / LE200\" antippen (RTSP-Port 88, Steuer-Port 80; die Ports kannst du " +
+                "anpassen). Imou: Benutzer admin, als Passwort das in der Imou-Life-App vergebene " +
+                "Gerätepasswort bzw. der Sicherheitscode; RTSP/ONVIF muss dort ggf. aktiviert sein.",
             style = MaterialTheme.typography.bodySmall,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -518,12 +534,18 @@ private fun EditScreen(
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(checked = ptz, onCheckedChange = { ptz = it })
-            Text("  Schwenken/Neigen (ONVIF)")
+            Text("  Schwenken/Neigen")
         }
         if (ptz) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = ptzMode == Camera.PTZ_ONVIF, onClick = { ptzMode = Camera.PTZ_ONVIF })
+                Text("ONVIF")
+                RadioButton(selected = ptzMode == Camera.PTZ_FOSCAM, onClick = { ptzMode = Camera.PTZ_FOSCAM })
+                Text("Foscam")
+            }
             OutlinedTextField(
                 onvifPort, { onvifPort = it.filter(Char::isDigit) },
-                label = { Text("ONVIF-Port (meist 80)") },
+                label = { Text("Steuer-Port (Weboberfläche, meist 80)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(), singleLine = true,
             )
@@ -541,6 +563,7 @@ private fun EditScreen(
                         preferSub = preferSub,
                         ptz = ptz,
                         onvifPort = onvifPort.toIntOrNull() ?: 80,
+                        ptzMode = ptzMode,
                     )
                 )
             }) { Text("Speichern") }

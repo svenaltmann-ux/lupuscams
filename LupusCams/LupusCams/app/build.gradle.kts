@@ -11,8 +11,8 @@ android {
         applicationId = "de.example.lupuscams"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = 3
+        versionName = "2.1"
     }
 
     // Feste Signatur, damit spätere Versionen als Update über die installierte App gehen.

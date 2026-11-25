@@ -35,6 +35,7 @@ class CameraStore(context: Context) {
                     preferSub = o.optBoolean("preferSub", false),
                     ptz = o.optBoolean("ptz", false),
                     onvifPort = o.optInt("onvifPort", 80),
+                    ptzMode = o.optString("ptzMode", Camera.PTZ_ONVIF),
                 )
             }
         } catch (e: Exception) {
@@ -57,6 +58,7 @@ class CameraStore(context: Context) {
                     .put("preferSub", c.preferSub)
                     .put("ptz", c.ptz)
                     .put("onvifPort", c.onvifPort)
+                    .put("ptzMode", c.ptzMode)
             )
         }
         prefs.edit().putString(KEY, arr.toString()).apply()

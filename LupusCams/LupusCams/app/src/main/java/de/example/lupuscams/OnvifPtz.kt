@@ -20,7 +20,12 @@ import java.util.TimeZone
  * Minimaler ONVIF-Client zum Schwenken/Neigen (ContinuousMove und Stop).
  * Alle Aufrufe geben null zurück, wenn sie geklappt haben, sonst eine kurze Fehlermeldung.
  */
-class OnvifPtz(private val cam: Camera) {
+interface PtzController {
+    suspend fun move(pan: Float, tilt: Float): String?
+    suspend fun stop(): String?
+}
+
+class OnvifPtz(private val cam: Camera) : PtzController {
 
     private val lock = Mutex()
     private var ptzUrl: String? = null
@@ -30,7 +35,7 @@ class OnvifPtz(private val cam: Camera) {
 
     private val base get() = "http://${cam.host.trim()}:${cam.onvifPort}"
 
-    suspend fun move(pan: Float, tilt: Float): String? = lock.withLock {
+    override suspend fun move(pan: Float, tilt: Float): String? = lock.withLock {
         withContext(Dispatchers.IO) {
             try {
                 prepare()
@@ -47,7 +52,7 @@ class OnvifPtz(private val cam: Camera) {
         }
     }
 
-    suspend fun stop(): String? = lock.withLock {
+    override suspend fun stop(): String? = lock.withLock {
         withContext(Dispatchers.IO) {
             try {
                 prepare()
