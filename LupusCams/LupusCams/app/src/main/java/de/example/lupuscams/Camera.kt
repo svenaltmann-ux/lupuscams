@@ -1,20 +1,27 @@
 package de.example.lupuscams
 
 import android.net.Uri
+import java.util.UUID
 
 /**
- * Eine Kamera. Die Lupus-Modelle LE202/LE204/LE221 nutzen den Dahua-typischen Pfad
- * /cam/realmonitor?channel=1&subtype=0 (0 = Hauptstream, 1 = Substream).
- * Falls eine Kamera (z. B. LE232) einen anderen Pfad braucht, kann er in der App
- * pro Kamera geändert werden. "%d" wird durch 0 (Haupt) bzw. 1 (Sub) ersetzt.
+ * Eine Kamera. Lupus (LE202/LE204/LE221/LE232/LE200) und Imou (z. B. Rex 3D) nutzen den
+ * Dahua-typischen Pfad /cam/realmonitor?channel=1&subtype=0 (0 = Hauptstream, 1 = Substream).
+ * "%d" im Pfad wird durch 0 (Haupt) bzw. 1 (Sub) ersetzt.
  */
 data class Camera(
+    val id: String = UUID.randomUUID().toString(),
     val name: String,
     val host: String = "",
     val port: Int = 554,
     val user: String = "admin",
     val password: String = "",
-    val pathTemplate: String = DEFAULT_PATH,
+    val pathTemplate: String = PATH_STANDARD,
+    /** Im Vollbild gleich den Substream nehmen (falls der Hauptstream nicht abspielbar ist). */
+    val preferSub: Boolean = false,
+    /** Schwenken/Neigen per ONVIF anzeigen. */
+    val ptz: Boolean = false,
+    /** Port des ONVIF-Dienstes der Kamera (meist 80). */
+    val onvifPort: Int = 80,
 ) {
     fun rtspUri(main: Boolean): Uri? {
         if (host.isBlank()) return null
@@ -29,7 +36,9 @@ data class Camera(
     }
 
     companion object {
-        const val DEFAULT_PATH = "/cam/realmonitor?channel=1&subtype=%d"
+        const val PATH_STANDARD = "/cam/realmonitor?channel=1&subtype=%d"
+        const val PATH_ONVIF = "/cam/realmonitor?channel=1&subtype=%d&unicast=true&proto=Onvif"
+        const val DEFAULT_PATH = PATH_STANDARD
 
         fun defaults() = listOf(
             Camera(name = "LE232"),

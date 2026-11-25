@@ -5,8 +5,9 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
-/** Speichert die Kameras (inkl. Passwörter) verschlüsselt über den Android Keystore. */
+/** Speichert Kameras (inkl. Passwörter) und Einstellungen verschlüsselt über den Android Keystore. */
 class CameraStore(context: Context) {
 
     private val prefs = EncryptedSharedPreferences.create(
@@ -24,12 +25,16 @@ class CameraStore(context: Context) {
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
                 Camera(
+                    id = o.optString("id").ifBlank { UUID.randomUUID().toString() },
                     name = o.optString("name"),
                     host = o.optString("host"),
                     port = o.optInt("port", 554),
                     user = o.optString("user", "admin"),
                     password = o.optString("password"),
                     pathTemplate = o.optString("path", Camera.DEFAULT_PATH),
+                    preferSub = o.optBoolean("preferSub", false),
+                    ptz = o.optBoolean("ptz", false),
+                    onvifPort = o.optInt("onvifPort", 80),
                 )
             }
         } catch (e: Exception) {
@@ -42,18 +47,29 @@ class CameraStore(context: Context) {
         cameras.forEach { c ->
             arr.put(
                 JSONObject()
+                    .put("id", c.id)
                     .put("name", c.name)
                     .put("host", c.host)
                     .put("port", c.port)
                     .put("user", c.user)
                     .put("password", c.password)
                     .put("path", c.pathTemplate)
+                    .put("preferSub", c.preferSub)
+                    .put("ptz", c.ptz)
+                    .put("onvifPort", c.onvifPort)
             )
         }
         prefs.edit().putString(KEY, arr.toString()).apply()
     }
 
+    fun loadPerPage(): Int = prefs.getInt(KEY_PER_PAGE, 4)
+
+    fun savePerPage(value: Int) {
+        prefs.edit().putInt(KEY_PER_PAGE, value).apply()
+    }
+
     private companion object {
         const val KEY = "cameras"
+        const val KEY_PER_PAGE = "per_page"
     }
 }

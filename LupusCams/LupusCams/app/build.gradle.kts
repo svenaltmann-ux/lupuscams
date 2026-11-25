@@ -11,13 +11,28 @@ android {
         applicationId = "de.example.lupuscams"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.0"
+    }
+
+    // Feste Signatur, damit spätere Versionen als Update über die installierte App gehen.
+    signingConfigs {
+        create("fixed") {
+            storeFile = file("lupuscams.keystore")
+            storeType = "pkcs12"
+            storePassword = "lupuscams"
+            keyAlias = "lupuscams"
+            keyPassword = "lupuscams"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("fixed")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("fixed")
         }
     }
     compileOptions {
@@ -45,6 +60,7 @@ dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.fragment:fragment-ktx:1.8.2")
     implementation("androidx.activity:activity-compose:1.9.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation("androidx.compose.ui:ui")

@@ -4,10 +4,12 @@ import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,7 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -26,15 +30,26 @@ import androidx.media3.exoplayer.rtsp.RtspMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 
-/** Zeigt einen RTSP-Livestream. RTP läuft über TCP, das ist durch VPN-Tunnel am stabilsten. */
+/**
+ * Zeigt einen RTSP-Livestream. RTP läuft über TCP, das ist durch VPN-Tunnel am stabilsten.
+ * muted = true schaltet die Tonspur ganz ab (Kacheln); false spielt den Ton ab (Vollbild).
+ * reloadKey: wird er erhöht, verbindet sich der Player neu.
+ * onError: wird mit einer kurzen Fehlerbeschreibung aufgerufen.
+ */
 @OptIn(UnstableApi::class)
 @Composable
-fun CameraPlayer(uri: Uri, modifier: Modifier = Modifier) {
+fun CameraPlayer(
+    uri: Uri,
+    modifier: Modifier = Modifier,
+    muted: Boolean = true,
+    reloadKey: Int = 0,
+    onError: ((String) -> Unit)? = null,
+) {
     val context = LocalContext.current
-    var buffering by remember(uri) { mutableStateOf(true) }
-    var error by remember(uri) { mutableStateOf<String?>(null) }
+    var buffering by remember(uri, reloadKey) { mutableStateOf(true) }
+    var error by remember(uri, reloadKey) { mutableStateOf<String?>(null) }
 
-    val player = remember(uri) {
+    val player = remember(uri, reloadKey) {
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(
                 RtspMediaSource.Factory()
@@ -43,11 +58,17 @@ fun CameraPlayer(uri: Uri, modifier: Modifier = Modifier) {
             )
             .build()
             .apply {
-                volume = 0f
                 setMediaItem(MediaItem.fromUri(uri))
                 playWhenReady = true
                 prepare()
             }
+    }
+
+    LaunchedEffect(player, muted) {
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, muted)
+            .build()
     }
 
     DisposableEffect(player) {
@@ -58,8 +79,11 @@ fun CameraPlayer(uri: Uri, modifier: Modifier = Modifier) {
             }
 
             override fun onPlayerError(e: PlaybackException) {
-                error = "Keine Verbindung (${e.errorCodeName})"
+                val cause = e.cause?.message?.take(80)
+                val text = if (cause.isNullOrBlank()) e.errorCodeName else "${e.errorCodeName}: $cause"
+                error = "Keine Verbindung ($text)"
                 buffering = false
+                onError?.invoke(text)
             }
         }
         player.addListener(listener)
@@ -83,7 +107,7 @@ fun CameraPlayer(uri: Uri, modifier: Modifier = Modifier) {
             update = { it.player = player },
         )
         when {
-            error != null -> Text(error!!, color = Color.White)
+            error != null -> Text(error!!, color = Color.White, modifier = Modifier.padding(8.dp))
             buffering -> CircularProgressIndicator(color = Color.White)
         }
     }
